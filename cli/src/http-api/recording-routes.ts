@@ -10,7 +10,7 @@ import {
   RecordingTargetRequest,
 } from "../relay/schema.ts"
 import type { TargetRegistry } from "../cdp/target-registry.ts"
-import { decodeRequest, optionalInteger, sendNotFound } from "./errors.ts"
+import { decodeRequest, guardOutputPath, optionalInteger, sendNotFound } from "./errors.ts"
 
 /**
  * A recording request that failed because there was nothing to act on (no recording) is the caller's mistake, not
@@ -35,6 +35,7 @@ export function handleRecordingRequest(options: {
     if (options.pathname === "/recording/start" && options.request.method === "POST") {
       const body = yield* readJsonBody(options.request)
       const { tabId, sessionId, ...recordingOptions } = yield* decodeRequest(RecordingStartRequest, body, "recording start")
+      yield* guardOutputPath(recordingOptions.outputPath, "recording start")
       const target = resolveAttachedRecordingTarget({ registry: options.registry, tabId, sessionId })
       const startOptions: RecordingStartOptions = {
         ...recordingOptions,
@@ -101,6 +102,7 @@ export function handleFlightRecorderRequest(options: {
     }
     if (options.pathname === "/flight-recorder/save-last" && options.request.method === "POST") {
       const request = yield* decodeRequest(FlightRecorderSaveRequest, yield* readJsonBody(options.request), "flight recorder save-last")
+      yield* guardOutputPath(request.outputPath, "flight recorder save-last")
       const target = recordingTargetFromValues({ registry: options.registry, tabId: request.tabId, sessionId: request.sessionId })
       const result = yield* tryRecordingPromise("save flight recorder", () => options.flightRecorder.saveLast({
         ...target,

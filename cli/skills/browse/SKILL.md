@@ -227,7 +227,8 @@ is no `process`, `require`, `import()`, `eval`, `fs`, `os`,
 `page.request`, `context.request` and `browser.browserType()` are unavailable.
 Files go through `files` and Playwright file options, which accept absolute paths
 inside the execute file roots (the temp directory, `/tmp`, and directories in
-`OPENCODE_BROWSER_FILE_ROOTS`):
+`OPENCODE_BROWSER_FILE_ROOTS`; when the operator sets `OPENCODE_BROWSER_OUTPUT_DIR`,
+only that directory, which also holds HARs and recordings):
 
 ```js
 const saved = await files.write("report.csv", csvText)
@@ -316,6 +317,8 @@ browse secrets run github -- ./github-cli repositories
 A capture ends by itself after 30 minutes, and when the MCP server that started
 it exits; stop it before then. MCP exposes the same capture with the `network`
 tool (`action: "start"` / `"stop"`) and the profiles with the `secrets_*` tools.
+`secrets_run` and `browse secrets run` work only when the operator started
+browse with `OPENCODE_BROWSER_ALLOW_SECRETS_RUN=1`.
 
 ## Recording
 

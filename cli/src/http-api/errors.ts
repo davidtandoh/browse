@@ -4,6 +4,7 @@ import * as AuthProfile from "../auth/profile.ts"
 import { AuthenticatedOriginError } from "../auth/authenticated-origin.ts"
 import { normalizeOriginPatterns, OriginPatternError } from "../auth/domain-policy.ts"
 import { TargetSelectionError } from "../execute.ts"
+import { assertOutputPath } from "../execute-realm/file-roots.ts"
 import { NetworkCaptureError } from "../network-capture.ts"
 import { headerValue, HttpRouteError, sendJson } from "../relay/helpers.ts"
 import type { RelayErrorCode, TargetSummary } from "../relay/schema.ts"
@@ -156,6 +157,14 @@ export function originPatterns(raw: readonly string[]): Effect.Effect<readonly s
   return Effect.try({
     try: () => normalizeOriginPatterns(raw),
     catch: (cause) => cause instanceof OriginPatternError ? new Error(cause.message) : new Error("Invalid origin patterns", { cause }),
+  })
+}
+
+/** Refuses an artifact path outside OPENCODE_BROWSER_OUTPUT_DIR, when the relay was started with one. */
+export function guardOutputPath(target: string, operation: string): Effect.Effect<string, HttpRouteError> {
+  return Effect.try({
+    try: () => assertOutputPath(target, operation),
+    catch: (cause) => new HttpRouteError({ status: 403, code: "invalid-request", message: cause instanceof Error ? cause.message : String(cause) }),
   })
 }
 

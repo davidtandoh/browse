@@ -10,6 +10,7 @@ import url from "node:url"
 import util from "node:util"
 import zlib from "node:zlib"
 import { cacheRoot, configRoot, dataRoot, defaultRoots, installedBinaryPath, installerBinaryPath, stateRoot } from "../paths.ts"
+import { outputDirectory, outputDirectoryEnvironmentVariable } from "../operator-guards.ts"
 import { legacyRoots } from "../setup/legacy.ts"
 
 export const allowNodeEnvironmentVariable = "OPENCODE_BROWSER_ALLOW_NODE"
@@ -48,7 +49,7 @@ let filesDirectory: string | undefined
 let filesDirectoryExitHook = false
 export function executeFilesDirectory(): string {
   if (filesDirectory === undefined) {
-    filesDirectory = fs.mkdtempSync(path.join(os.tmpdir(), `${filesDirectoryPrefix}${process.pid}-`))
+    filesDirectory = fs.mkdtempSync(path.join(outputDirectory() ?? os.tmpdir(), `${filesDirectoryPrefix}${process.pid}-`))
     if (!filesDirectoryExitHook) {
       filesDirectoryExitHook = true
       process.once("exit", removeExecuteFilesDirectory)
@@ -89,7 +90,7 @@ const processAlive = (pid: number): boolean => {
  * Removes files directories left by processes that are gone: owned by this user, named with a pid that no longer runs.
  * Directories of live processes (another relay, a running CLI), of other users, and older unnamed ones stay.
  */
-export function pruneStaleExecuteFilesDirectories(tmp = os.tmpdir()): readonly string[] {
+export function pruneStaleExecuteFilesDirectories(tmp = outputDirectory() ?? os.tmpdir()): readonly string[] {
   const removed: string[] = []
   let entries: string[]
   try {
@@ -124,8 +125,13 @@ function realpathOrSelf(target: string): string {
   }
 }
 
-/** Directories execute code may read and write through Playwright file options and `files`. */
+/**
+ * Directories execute code may read and write through Playwright file options and `files`. With
+ * OPENCODE_BROWSER_OUTPUT_DIR set, that directory is the only one.
+ */
 export function executeFileRoots(): readonly string[] {
+  const output = outputDirectory()
+  if (output !== undefined) return [realpathOrSelf(output)]
   const extra = (process.env[fileRootsEnvironmentVariable] ?? "").split(path.delimiter).filter((entry) => path.isAbsolute(entry))
   const roots = [os.tmpdir(), ...(process.platform === "win32" ? [] : ["/tmp"]), ...extra]
   return [...new Set(roots.map(realpathOrSelf))]
@@ -218,7 +224,9 @@ export function assertExecuteFilePath(target: unknown, operation: string): strin
     throw new ExecuteFileAccessError(`${operation}: file paths must be non-empty strings`)
   }
   const roots = executeFileRoots()
-  const describeRoots = () => `${roots.join(", ")} (add more with ${fileRootsEnvironmentVariable})`
+  const describeRoots = () => outputDirectory() === undefined
+    ? `${roots.join(", ")} (add more with ${fileRootsEnvironmentVariable})`
+    : `${roots.join(", ")} (set by ${outputDirectoryEnvironmentVariable})`
   if (!path.isAbsolute(target)) {
     throw new ExecuteFileAccessError(`${operation}: use an absolute path inside ${describeRoots()}, for example files.path("name.png")`)
   }
@@ -276,6 +284,21 @@ export function assertExecuteFilePath(target: unknown, operation: string): strin
     if (stat.uid !== process.getuid() || (stat.mode & 0o022) !== 0) {
       throw new ExecuteFileAccessError(`${operation}: use a private subdirectory such as files.dir, not a shared temporary directory`)
     }
+  }
+  return resolved
+}
+
+/**
+ * The absolute path a HAR, recording or clip is written to. Unchanged unless OPENCODE_BROWSER_OUTPUT_DIR is set; then it
+ * must resolve, symlinks followed, inside that directory and outside browse's own files.
+ */
+export function assertOutputPath(target: string, operation: string): string {
+  const resolved = path.resolve(target)
+  const output = outputDirectory()
+  if (output === undefined) return resolved
+  const real = realTarget(resolved)
+  if (!isInside(real, realTarget(output)) || isBrowseOwned(real)) {
+    throw new ExecuteFileAccessError(`${operation}: ${target} is outside ${output}, the only directory browse writes to (${outputDirectoryEnvironmentVariable})`)
   }
   return resolved
 }
