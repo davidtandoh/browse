@@ -304,8 +304,6 @@ export type InstallerOptions = {
   readonly fetch?: typeof fetch
   readonly env?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform
-  /** Whether this process runs from a source checkout; defaults to fromCheckout(). */
-  readonly checkout?: boolean
 }
 
 /**
@@ -314,9 +312,6 @@ export type InstallerOptions = {
  * npm install -g. npx is a no-op. Returns the version now installed.
  */
 export async function runInstaller(options: InstallerOptions): Promise<string> {
-  // A checkout (a fork's included) follows its own git remote with `update`; it must never fetch or run the published
-  // install script or npm package, whatever runtime a caller passes.
-  if (options.checkout ?? fromCheckout()) throw new Error("a source checkout never runs the installer; `update` pulls new commits from its git remote")
   const run = options.run ?? runCommand
   const env = options.env ?? process.env
   const platform = options.platform ?? process.platform

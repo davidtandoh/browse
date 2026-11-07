@@ -9,6 +9,7 @@ import {
   createAutoUpdater,
   describeAutoUpdate,
   installedVersion,
+  installedRuntime,
   installKind,
   readState,
   runInstaller,
@@ -74,7 +75,12 @@ describe("channels and versions", () => {
 })
 
 describe("where this process runs from", () => {
-  test("npx's cache is recognized, and a checkout is not an installed runtime", () => {
+  test("a checkout has no installed runtime to pass to the installer", () => {
+    expect(installKind(process.argv[1], true)).toBe("checkout")
+    expect(installedRuntime()).toBeUndefined()
+  })
+
+  test("npx's cache and global npm installs are recognized", () => {
     expect(installKind("/home/u/.npm/_npx/abc/node_modules/@opencode/browse/dist/cli.mjs", false)).toBe("npx")
     expect(installKind("/home/u/.local/share/pnpm/global/5/node_modules/@opencode/browse/dist/cli.mjs", false)).toBe("npm")
   })
@@ -92,7 +98,6 @@ describe("updating reruns the installer", () => {
       runtime,
       version: "0.0.2",
       env: { ...process.env, HOME: home, OPENCODE_BROWSER_INSTALL_SCRIPT: installer },
-      checkout: false,
     })
     expect(installed).toBe("0.0.2")
     expect(installedVersion(runtime)).toBe("0.0.2")
@@ -109,7 +114,6 @@ describe("updating reruns the installer", () => {
         return { status: 0, stdout: "", stderr: "" }
       },
       env: {},
-      checkout: false,
     })
     expect(calls).toEqual([["npm", "install", "-g", "@opencode/browse@1.0.1"]])
     // The stub installed nothing, so the caller keeps the version it asked for.
@@ -118,26 +122,11 @@ describe("updating reruns the installer", () => {
 
   test("npx is a no-op: npx resolves the package itself", async () => {
     let ran = false
-    expect(await runInstaller({ runtime: { kind: "npx", entry: "/tmp/_npx/x/cli.mjs", version: "1.0.0" }, version: "2.0.0", checkout: false, run: async () => ((ran = true), { status: 0, stdout: "", stderr: "" }) })).toBe("1.0.0")
+    expect(await runInstaller({ runtime: { kind: "npx", entry: "/tmp/_npx/x/cli.mjs", version: "1.0.0" }, version: "2.0.0", run: async () => ((ran = true), { status: 0, stdout: "", stderr: "" }) })).toBe("1.0.0")
     expect(ran).toBe(false)
   })
 
-  test("a source checkout never fetches or runs an install script or npm, whatever runtime it is handed", async () => {
-    const calls: string[][] = []
-    const fetched: string[] = []
-    const run = async (command: string, args: readonly string[]) => (calls.push([command, ...args]), { status: 0, stdout: "", stderr: "" })
-    const fetch = (async (url: string) => (fetched.push(url), new Response("exit 0"))) as unknown as typeof globalThis.fetch
-    for (const runtime of [
-      { kind: "binary", entry: "/home/u/.local/bin/browse", version: "0.0.1" },
-      { kind: "npm", entry: "/prefix/node_modules/@opencode/browse/dist/cli.mjs", version: "0.0.1" },
-    ] satisfies Runtime[]) {
-      await expect(runInstaller({ runtime, version: "0.0.2", run, fetch, env: {}, checkout: true })).rejects.toThrow("source checkout never runs the installer")
-    }
-    // This suite runs from a checkout, so the default must refuse too.
-    await expect(runInstaller({ runtime: { kind: "npm", entry: "/x/cli.mjs", version: "0.0.1" }, version: "0.0.2", run, fetch, env: {} })).rejects.toThrow("source checkout")
-    expect(calls).toEqual([])
-    expect(fetched).toEqual([])
-  })
+
 })
 
 describe("the relay's updater", () => {
