@@ -9,6 +9,7 @@ import {
   createAutoUpdater,
   describeAutoUpdate,
   installedVersion,
+  installedRuntime,
   installKind,
   readState,
   runInstaller,
@@ -74,7 +75,12 @@ describe("channels and versions", () => {
 })
 
 describe("where this process runs from", () => {
-  test("npx's cache is recognized, and a checkout is not an installed runtime", () => {
+  test("a checkout has no installed runtime to pass to the installer", () => {
+    expect(installKind(process.argv[1], true)).toBe("checkout")
+    expect(installedRuntime()).toBeUndefined()
+  })
+
+  test("npx's cache and global npm installs are recognized", () => {
     expect(installKind("/home/u/.npm/_npx/abc/node_modules/@opencode/browse/dist/cli.mjs", false)).toBe("npx")
     expect(installKind("/home/u/.local/share/pnpm/global/5/node_modules/@opencode/browse/dist/cli.mjs", false)).toBe("npm")
   })
@@ -119,6 +125,8 @@ describe("updating reruns the installer", () => {
     expect(await runInstaller({ runtime: { kind: "npx", entry: "/tmp/_npx/x/cli.mjs", version: "1.0.0" }, version: "2.0.0", run: async () => ((ran = true), { status: 0, stdout: "", stderr: "" }) })).toBe("1.0.0")
     expect(ran).toBe(false)
   })
+
+
 })
 
 describe("the relay's updater", () => {

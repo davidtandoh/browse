@@ -2,6 +2,7 @@ import http from "node:http"
 import { Effect } from "effect"
 import * as AuthProfile from "../auth/profile.ts"
 import { selectTarget } from "../execute.ts"
+import { secretsRunAllowed, secretsRunDisabledMessage } from "../operator-guards.ts"
 import {
   HttpRouteError,
   optionalSessionId,
@@ -26,7 +27,7 @@ import {
 } from "../relay/schema.ts"
 import type { OpenCodeBrowserSessions } from "../session-manager.ts"
 import type { TargetRegistry } from "../cdp/target-registry.ts"
-import { decodeRequest, noteClient, originPatterns, sendNotFound } from "./errors.ts"
+import { decodeRequest, guardOutputPath, noteClient, originPatterns, sendNotFound } from "./errors.ts"
 
 export function handleClientRequest(options: {
   readonly request: http.IncomingMessage
@@ -77,6 +78,7 @@ export function handleNetworkRequest(options: {
     if (options.pathname === "/network/stop" && options.request.method === "POST") {
       const request = yield* decodeRequest(NetworkStopRequest, yield* readJsonBody(options.request), "network stop")
       const { sessionId, ...stopOptions } = request
+      if (stopOptions.outputPath !== undefined) yield* guardOutputPath(stopOptions.outputPath, "network stop")
       sendJson(options.response, yield* options.sessions.networkStop(sessionId, stopOptions))
       return
     }
@@ -108,6 +110,7 @@ export function handleAuthRequest(options: {
       return
     }
     if (options.pathname === "/auth/run" && options.request.method === "POST") {
+      if (!secretsRunAllowed()) return yield* new HttpRouteError({ status: 403, code: "invalid-request", message: secretsRunDisabledMessage })
       const request = yield* decodeRequest(AuthRunRequest, yield* readJsonBody(options.request), "auth run")
       sendJson(options.response, yield* AuthProfile.run(request))
       return

@@ -23,6 +23,8 @@ it is needed, so do not start `browse serve` first.
 
 MCP keeps one implicit process session; omit `session` for the normal path, or
 call `session_new` and pass an explicit id when one MCP process needs several.
+Operator guards can restrict tools and lock the session. Before creating or
+switching sessions, follow [Operator guards](https://github.com/davidtandoh/browse/blob/dev/README.md#operator-guards).
 
 CLI sessions are named, and a named session keeps its default page across short
 commands and relay restarts:
@@ -227,7 +229,8 @@ is no `process`, `require`, `import()`, `eval`, `fs`, `os`,
 `page.request`, `context.request` and `browser.browserType()` are unavailable.
 Files go through `files` and Playwright file options, which accept absolute paths
 inside the execute file roots (the temp directory, `/tmp`, and directories in
-`OPENCODE_BROWSER_FILE_ROOTS`):
+`OPENCODE_BROWSER_FILE_ROOTS`, subject to the output directory override in
+[Operator guards](https://github.com/davidtandoh/browse/blob/dev/README.md#operator-guards)):
 
 ```js
 const saved = await files.write("report.csv", csvText)
@@ -316,6 +319,8 @@ browse secrets run github -- ./github-cli repositories
 A capture ends by itself after 30 minutes, and when the MCP server that started
 it exits; stop it before then. MCP exposes the same capture with the `network`
 tool (`action: "start"` / `"stop"`) and the profiles with the `secrets_*` tools.
+For `secrets_run` and `browse secrets run` availability, see
+[Operator guards](https://github.com/davidtandoh/browse/blob/dev/README.md#operator-guards).
 
 ## Recording
 

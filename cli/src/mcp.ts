@@ -9,6 +9,7 @@ import "./mcp/network.ts"
 import "./mcp/recording.ts"
 import "./mcp/secrets.ts"
 import "./mcp/session.ts"
+import { applyOperatorGuards } from "./mcp/guards.ts"
 import {
   buildRegisteredMcpTools,
   createMcpToolContext,
@@ -121,15 +122,17 @@ const registerTools = Effect.gen(function* () {
       },
     })
   // Tools are registered once, with fixed descriptions and schemas. Connected browsers change without touching this
-  // list: status reports them.
-  const specs = buildRegisteredMcpTools(
-    createMcpToolContext({
-      relay,
-      currentSession,
-      packageRoot,
-      update: () => updates.current,
-    }),
-  )
+  // list: status reports them. The operator's guards decide which tools exist at all (mcp/guards.ts).
+  const ctx = createMcpToolContext({
+    relay,
+    currentSession,
+    packageRoot,
+    update: () => updates.current,
+  })
+  const specs = yield* Effect.try({
+    try: () => applyOperatorGuards(buildRegisteredMcpTools(ctx), ctx),
+    catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
+  })
   yield* Effect.forEach(specs, register, { discard: true })
 })
 

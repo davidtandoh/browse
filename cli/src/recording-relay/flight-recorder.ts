@@ -4,6 +4,7 @@ import { performance } from "node:perf_hooks"
 import type { JsonObject } from "../protocol.ts"
 import type { FlightRecorderSaveResponse, FlightRecorderStatusResponse } from "../relay/schema.ts"
 import { startFfmpegVideoEncoder } from "./ffmpeg-encoder.ts"
+import { writeRecordingMetadata } from "./metadata.ts"
 import {
   acknowledgeScreencastFrame,
   parseScreencastFrame,
@@ -214,7 +215,7 @@ export class FlightRecorderRelay {
         sourceFrameCount: recorder.sourceFrameCount,
         droppedFrameCount: recorder.droppedFrameCount,
       }
-      await fs.writeFile(`${target.outputPath}.json`, `${JSON.stringify({ ...receipt, savedAt: new Date(this.now()).toISOString(), retainedDurationMs: this.retainedDuration(recorder) }, null, 2)}\n`, "utf8")
+      await writeRecordingMetadata(target.outputPath, { ...receipt, savedAt: new Date(this.now()).toISOString(), retainedDurationMs: this.retainedDuration(recorder) }, true)
       return receipt
     } catch (error) {
       await encoder?.cancel().catch(() => {})
@@ -323,7 +324,7 @@ export class FlightRecorderRelay {
 
 async function assertOutputAvailable(filePath: string): Promise<void> {
   try {
-    await fs.stat(filePath)
+    await fs.lstat(filePath)
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return
     throw error

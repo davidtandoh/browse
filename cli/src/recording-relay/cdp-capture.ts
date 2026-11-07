@@ -3,6 +3,7 @@ import path from "node:path"
 import type { JsonObject } from "../protocol.ts"
 import { getString } from "../relay/helpers.ts"
 import { startFfmpegVideoEncoder } from "./ffmpeg-encoder.ts"
+import { writeRecordingMetadata } from "./metadata.ts"
 import { acknowledgeScreencastFrame, parseScreencastFrame, prepareCdpScreencastViewport, startCdpScreencast } from "./screencast.ts"
 import {
   cdpArtifactType,
@@ -256,7 +257,7 @@ async function finishCdpRecording(context: CdpCaptureContext, recording: CdpReco
       ...quality,
       mimeType: recording.artifactType === "mp4" ? "video/mp4" : "video/webm",
     }
-    await fs.writeFile(`${recording.outputPath}.json`, `${JSON.stringify(metadata, null, 2)}\n`, "utf8")
+    await writeRecordingMetadata(recording.outputPath, metadata)
     return {
       success: true,
       tabId: recording.tabId,
