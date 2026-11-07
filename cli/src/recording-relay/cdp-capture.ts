@@ -1,10 +1,9 @@
 import fs from "node:fs/promises"
-import { constants } from "node:fs"
 import path from "node:path"
-import { assertOutputPath } from "../execute-realm/file-roots.ts"
 import type { JsonObject } from "../protocol.ts"
 import { getString } from "../relay/helpers.ts"
 import { startFfmpegVideoEncoder } from "./ffmpeg-encoder.ts"
+import { writeRecordingMetadata } from "./metadata.ts"
 import { acknowledgeScreencastFrame, parseScreencastFrame, prepareCdpScreencastViewport, startCdpScreencast } from "./screencast.ts"
 import {
   cdpArtifactType,
@@ -258,13 +257,7 @@ async function finishCdpRecording(context: CdpCaptureContext, recording: CdpReco
       ...quality,
       mimeType: recording.artifactType === "mp4" ? "video/mp4" : "video/webm",
     }
-    const sidecarPath = assertOutputPath(`${recording.outputPath}.json`, "recording metadata")
-    const sidecar = await fs.open(sidecarPath, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600)
-    try {
-      await sidecar.writeFile(`${JSON.stringify(metadata, null, 2)}\n`, "utf8")
-    } finally {
-      await sidecar.close()
-    }
+    await writeRecordingMetadata(recording.outputPath, metadata)
     return {
       success: true,
       tabId: recording.tabId,
