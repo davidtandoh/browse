@@ -4,7 +4,7 @@ import path from "node:path"
 import { RecordingRelay } from "../src/recording-relay.ts"
 import { FlightRecorderRelay } from "../src/recording-relay/flight-recorder.ts"
 
-test.each(["new", "existing", "outside symlink", "inside symlink", "dangling symlink"])("CDP recording metadata: %s", async (kind) => {
+test.each(["new", "existing", "outside symlink", "inside symlink", "dangling symlink", "hard link"])("CDP recording metadata: %s", async (kind) => {
   const root = fs.mkdtempSync(path.join(process.cwd(), ".recording-sidecar-"))
   const previousOutput = process.env.OPENCODE_BROWSER_OUTPUT_DIR
   const output = path.join(root, "output")
@@ -30,9 +30,19 @@ test.each(["new", "existing", "outside symlink", "inside symlink", "dangling sym
       if (kind !== "dangling symlink") fs.writeFileSync(target, "unchanged")
       fs.symlinkSync(target, sidecarPath)
     }
+    if (kind === "hard link") {
+      fs.writeFileSync(target, "unchanged")
+      fs.linkSync(target, sidecarPath)
+    }
     const result = await relay.stopRecording({ tabId: 1 })
     expect(relay.hasActiveRecordings()).toBe(false)
-    if (kind.endsWith("symlink")) {
+    if (kind === "hard link") {
+      expect(result.success).toBe(false)
+      expect(result.error).toContain("regular file with one link")
+      expect(fs.readFileSync(target, "utf8")).toBe("unchanged")
+      expect(fs.readFileSync(sidecarPath, "utf8")).toBe("unchanged")
+      expect(fs.statSync(sidecarPath).nlink).toBe(2)
+    } else if (kind.endsWith("symlink")) {
       expect(result.success).toBe(false)
       expect(fs.lstatSync(sidecarPath).isSymbolicLink()).toBe(true)
       if (kind === "dangling symlink") expect(fs.existsSync(target)).toBe(false)
