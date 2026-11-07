@@ -224,7 +224,7 @@ connection itself isn't encrypted by browse; use a network that is (Tailscale or
 | `recording` (`action`: `start`, `stop`, `status`, `cancel`) | Record a tab to MP4 or WebM (`cursor: true` draws the ghost cursor) |
 | `flight_recorder` (`action`: `start`, `status`, `save_last`, `cancel`) | Keep the last minute of video, save it when something breaks |
 | `secrets_list` | Site secrets you stored for the session's sites; agents type them with `secrets.type()` only on their sites, without seeing them |
-| `secrets_status`, `secrets_refresh`, `secrets_run` | Reuse captured credentials while keeping their values out of transcripts and artifacts (`secrets_run` only with `OPENCODE_BROWSER_ALLOW_SECRETS_RUN=1`; see [Operator guards](#operator-guards)) |
+| `secrets_status`, `secrets_refresh`, `secrets_run` | Reuse captured credentials while keeping their values out of transcripts and artifacts (for `secrets_run` availability, see [Operator guards](#operator-guards)) |
 | `tabs_cleanup` | Close the agent's idle tabs |
 | `settings` | Read or change the settings below when the user asks (never the security switches or update behaviour); the options page updates live |
 | `status` | Connection status |
@@ -332,13 +332,13 @@ variables, or run `node cli/dist/cli.mjs relay restart` from an environment that
 
 | Variable | Effect |
 | --- | --- |
-| `OPENCODE_BROWSER_MCP_TOOLS=execute,status,session_adopt` | Register only these MCP tools. Other tools don't exist for the client. An unknown name stops the MCP server from starting. Unset: every tool |
+| `OPENCODE_BROWSER_MCP_TOOLS=execute,status,session_adopt` | Register only these MCP tools. Other tools don't exist for the client. An unknown name stops the MCP server from starting. Unset or blank: all tools permitted by the other guards. Listing `secrets_run` without enabling it also stops startup |
 | `OPENCODE_BROWSER_SESSION_LOCK=1` | Pin the MCP server to `OPENCODE_BROWSER_SESSION` (required), a session you created with its allowlist. `session_new`, `session_use` and `session_delete` are refused, as is any tool naming another session. Tools never create the session implicitly, and `session_allowlist` can only drop entries, never clear or add them |
 | `OPENCODE_BROWSER_ALLOW_SECRETS_RUN=1` | Allow `secrets_run` and `browse secrets run`, which run host commands outside the agent's own sandbox. Unset (the default): the MCP tool isn't registered and the relay refuses the command |
-| `OPENCODE_BROWSER_OUTPUT_DIR=/abs/dir` | Write agent files only inside this existing directory: HARs, recordings and saved clips, and `execute` files and screenshots (it replaces the execute file roots, including `OPENCODE_BROWSER_FILE_ROOTS`). `OPENCODE_BROWSER_ALLOW_NODE=1` bypasses it, so leave that unset |
+| `OPENCODE_BROWSER_OUTPUT_DIR=/abs/dir` | Write agent files only inside this existing directory: HARs, recordings and saved clips (including their `.json` sidecars), and `execute` files and screenshots (it replaces the execute file roots, including `OPENCODE_BROWSER_FILE_ROOTS`). `OPENCODE_BROWSER_ALLOW_NODE=1` bypasses it, so leave that unset |
 
-These don't block page-initiated requests. The domain allowlist still covers navigations and new tabs only, not
-`fetch`, XHR, iframes or workers, and a read-only session still runs page JavaScript.
+The domain allowlist's request limits are described under **Domain allowlists** in [Security](#security).
+A read-only session still runs page JavaScript.
 
 Escape hatches. Set them in the environment you start opencode (or your MCP client) from; the relay inherits
 `OPENCODE_BROWSER_*` variables. Run `node cli/dist/cli.mjs relay restart` after changing them:
