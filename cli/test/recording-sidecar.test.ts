@@ -38,6 +38,7 @@ test.each(["new", "existing", "outside symlink", "inside symlink", "dangling sym
     expect(relay.hasActiveRecordings()).toBe(false)
     if (kind === "hard link") {
       expect(result.success).toBe(false)
+      if (result.success !== false) throw new Error("Expected hard-linked sidecar rejection")
       expect(result.error).toContain("regular file with one link")
       expect(fs.readFileSync(target, "utf8")).toBe("unchanged")
       expect(fs.readFileSync(sidecarPath, "utf8")).toBe("unchanged")
